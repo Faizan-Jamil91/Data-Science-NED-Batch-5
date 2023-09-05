@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Voice Translation</title>
+    <style>
+        body {
+            background-color: lightgrey;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        h1, h2 {
+            text-align: center;
+        }
+
+        form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        select, textarea, input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button[type="button"], button[type="submit"] {
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button[type="button"]:hover, button[type="submit"]:hover {
+            background-color: #555;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+   
+<form method="POST">
+    {% csrf_token %}
+    <form action="/" method="POST">
+        <h1>S2ST-S2TT-T2ST</h1>
+        <label for="source_language">Select Source Language:</label>
+        <select name="source_language" id="source_language">
+            {% for language in languages %}
+            <option value="{{ language }}">{{ language }}</option>
+            {% endfor %}
+        </select><br>
+        
+        <label for="target_language">Select Target Language:</label>
+        <select name="target_language" id="target_language">
+            {% for language in languages %}
+            <option value="{{ language }}">{{ language }}</option>
+            {% endfor %}
+        </select><br>
+        
+        <button type="button" onclick="startRecording()">Start Recording</button>
+        <button type="button" onclick="stopRecording()">Stop Recording</button>
+        <button type="button" onclick="playRecordedAudio()">Play Recorded Audio</button>
+         <!-- Added button -->
+        
+        <br>
+
+        <!-- Include file input for audio upload -->
+        <input type="file" name="audio_file" accept="audio/*"><br>
+
+        
+    
+
+    <h2>Speech-to-Text:</h2>
+    <textarea id="recognizedText" name="recognizedText" rows="4" cols="50" placeholder="Recognized Text">{{ recognized_text }}</textarea><br>
+
+    <h2>Text-to-Text:</h2>
+    <textarea id="translatedText" name="translatedText" rows="4" cols="50" placeholder="Translated Text">{{ translated_text }}</textarea><br>
+
+    <audio id="audio" controls></audio><br>
+
+    <button type="submit">Translate</button>
+    <button type="button" onclick="playTranslatedAudio()">Play Translated Audio</button>
+    
+    </form>
+
+</form>
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let translatedAudioUrl;
+
+        async function startRecording() {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.ondataavailable = event => {
+                if (event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                // Ensure the recording has actually stopped before starting the translation
+                translateRecordedAudio();
+            };
+
+            mediaRecorder.start();
+        }
+
+        async function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop()); // Stop the audio stream
+            }
+        }
+
+        async function playRecordedAudio() {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audioPlayer = document.getElementById('audio');
+            audioPlayer.src = audioUrl;
+            audioPlayer.controls = true;
+            audioPlayer.play();
+        }
+
+        async function translateRecordedAudio() {
+            // Convert the recorded audio to text using Google Cloud Speech-to-Text API
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            const audioArrayBuffer = await audioBlob.arrayBuffer();
+            const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioArrayBuffer)));
+        
+            // Send the base64-encoded audio to your server or a cloud function
+            const response = await fetch('/speech-to-text-endpoint', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ audio: base64Audio }),
+            });
+        
+            if (!response.ok) {
+                console.error('Error while converting audio to text.');
+                return;
+            }
+        
+            const { recognizedText } = await response.json();
+        
+            // Translate the recognized text to the target language using Google Translate API
+            const targetLanguage = document.getElementById('target_language').value;
+            const translationResponse = await fetch('/translate-endpoint', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ text: recognizedText, targetLanguage }),
+            });
+        
+            if (!translationResponse.ok) {
+                console.error('Error while translating text.');
+                return;
+            }
+        
+            const { translatedText, translatedAudio } = await translationResponse.json();
+        
+            // Display the recognized and translated text in the textareas
+            document.getElementById('recognizedText').value = recognizedText;
+            document.getElementById('translatedText').value = translatedText;
+        
+            // Set the translated audio URL for playback
+            translatedAudioUrl = translatedAudio;
+        
+            // Play the translated audio
+            playTranslatedAudio();
+        }
+
+
+        async function playTranslatedAudio() {
+            if (translatedAudioUrl) {
+            const audioPlayer = new Audio(translatedAudioUrl);
+            audioPlayer.controls = true; // Add controls to the audio player
+            audioPlayer.play();
+            } else {
+        console.error('Translated audio URL is not available.');
+    }
+}
+
+    </script>
+</body>
+</html>
+
