@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Voice Translation</title>
+    <style>
+        body {
+            background-color: lightgrey;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        h1, h2 {
+            text-align: center;
+        }
+
+        form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        select, textarea, input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button[type="button"], button[type="submit"] {
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button[type="button"]:hover, button[type="submit"]:hover {
+            background-color: #555;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+   
+<form method="POST">
+    {% csrf_token %}
+    <form action="/" method="POST">
+        <h1>S2ST-S2TT-T2ST</h1>
+        <label for="source_language">Select Source Language:</label>
+        <select name="source_language" id="source_language">
+            {% for language in languages %}
+            <option value="{{ language }}">{{ language }}</option>
+            {% endfor %}
+        </select><br>
+        
+        <label for="target_language">Select Target Language:</label>
+        <select name="target_language" id="target_language">
+            {% for language in languages %}
+            <option value="{{ language }}">{{ language }}</option>
+            {% endfor %}
+        </select><br>
+        
+        <!-- Include file input for audio upload -->
+        <input type="file" name="audio_file" accept="audio/*"><br>
+    
+        <h2>Speech-to-Text:</h2>
+        <textarea id="recognizedText" name="recognizedText" rows="4" cols="50" placeholder="Recognized Text">{{ recognized_text }}</textarea><br>
+
+        <h2>Text-to-Text:</h2>
+        <textarea id="translatedText" name="translatedText" rows="4" cols="50" placeholder="Translated Text">{{ translated_text }}</textarea><br>
+
+        <audio id="audio" controls></audio><br>
+
+        <button type="submit">Start Recording and Translate</button>
+        
+    
+    </form>
+</form>
+
+</body>
+</html>
